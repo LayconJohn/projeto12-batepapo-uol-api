@@ -78,10 +78,32 @@ app.post("/messages", (req, res) => {
     }
 
     const body = {from: from, to: to, text: text, type: type, time: dayjs().format("HH:mm:ss")}
-    db.collection("mensagens").insertOne(body)
+    db.collection("mensagens").insertOne({
+        from: from,
+        to: to, 
+        text: text, 
+        type: type, 
+        time: dayjs().format("HH:mm:ss")
+    });
 
     res.sendStatus(201);
-})
+});
+
+app.get("/messages", (req, res) => {
+    const limit = Number(req.query.limit);
+
+    if (!limit || limit === 0) {
+        db.collection("mensagens").find().toArray().then(messages => {
+            res.status(200).send({messages: messages.reverse()});
+            return;
+        });
+    };
+
+    db.collection("mensagens").find().toArray().then(messages => {
+        const mensagensLimitadas = messages.slice(-limit);
+        res.status(200).send({messages: mensagensLimitadas});
+    });
+});
 
 
 app.listen(5000, () => {
