@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import chalk from "chalk";
 import dayjs from "dayjs";
+import Joi from "joi";
 
 const app = express();
 
@@ -14,7 +15,13 @@ const mensagens = [];
 app.post("/participants", (req, res) => {
     const {name} = req.body;
 
-    if (!name) {
+    const schema = Joi.object({
+        name: Joi.string().min(1).required()
+    })
+
+
+    const nameContemErro = schema.validate({name}).error
+    if (nameContemErro) {
         res.sendStatus(422);
         return;
     }
