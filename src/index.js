@@ -48,7 +48,7 @@ app.post("/participants", (req, res) => {
     }
 
     db.collection("participantes").insertOne({name: name, lastStatus: Date.now()});
-    db.collection("mensagens").insertOne({from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: dayjs().format("HH:mm:mm")})
+    db.collection("mensagens").insertOne({from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: dayjs().format("HH:mm:ss")})
 
     res.sendStatus(201);
 })
@@ -63,10 +63,22 @@ app.get("/participants", (req, res) => {
 
 app.post("/messages", (req, res) => {
     const {to, text, type} = req.body;
-    const {from} = req.headers.user;
+    const from = req.headers.user;
 
-    const body = {from: from, to: to, text: text, type: type, time: dayjs().format("HH:mm:mm")}
-    console.log(body)
+    const schema = Joi.object({
+        to: Joi.string().min(1).required(),
+        text: Joi.string().min(1).required()
+    })
+
+    const mensagemContemErro = schema.validate({to, text}).error !== undefined;
+    const tipoMensagemEhValida = type === "message" || type === "private_message";
+    if (mensagemContemErro || !tipoMensagemEhValida) {
+        res.sendStatus(422);
+        return;
+    }
+
+    const body = {from: from, to: to, text: text, type: type, time: dayjs().format("HH:mm:ss")}
+    db.collection("mensagens").insertOne(body)
 
     res.sendStatus(201);
 })
