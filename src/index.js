@@ -22,7 +22,7 @@ app.use(cors());
 app.use(express.json());
 
 
-app.post("/participants", (req, res) => {
+app.post("/participants", async (req, res) => {
 
     const {name} = req.body;
 
@@ -31,37 +31,44 @@ app.post("/participants", (req, res) => {
         name: Joi.string().min(1).required()
     })
 
-    //verificar esse teste
-    db.collection("participantes").find().toArray().then(users => {
-        //console.log(users)
-        const nameJaExiste = users.find(value => value.name === name);
-        if (nameJaExiste) {
-            res.sendStatus(409);
-            return;
-        }
-    });
-
     const nameContemErro = schema.validate({name}).error
     if (nameContemErro) {
         res.sendStatus(422);
         return;
     }
 
-    db.collection("participantes").insertOne({name: name, lastStatus: Date.now()});
-    db.collection("mensagens").insertOne({from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: dayjs().format("HH:mm:ss")})
-
-    res.sendStatus(201);
+    try {
+        //filtrar se participante já existe
+        const participantes = await db.collection("participantes").find().toArray();
+        const nameJaExiste = participantes.find(value => value.name === name);
+        if (nameJaExiste) {
+            res.sendStatus(409);
+            return;
+        }
+        
+        await db.collection("participantes").insertOne({name: name, lastStatus: Date.now()});
+        await db.collection("mensagens").insertOne({from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: dayjs().format("HH:mm:ss")})
+    
+        res.sendStatus(201);
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send({message: "Erro ao inserir um novo participante"})
+    }
 })
 
-app.get("/participants", (req, res) => {
-    
-    db.collection("participantes").find().toArray().then(users => {
-        res.status(200).send({participants: users});
-    });
+app.get("/participants", async (req, res) => {
+
+    try {
+        const participantes = await db.collection("participantes").find().toArray();
+        res.status(200).send({participants: participantes});
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send({message: "Erro ao pegar a lista de participantes"})
+    }
     
 })
 
-app.post("/messages", (req, res) => {
+app.post("/messages", async (req, res) => {
     const {to, text, type} = req.body;
     const from = req.headers.user;
 
@@ -78,31 +85,39 @@ app.post("/messages", (req, res) => {
     }
 
     const body = {from: from, to: to, text: text, type: type, time: dayjs().format("HH:mm:ss")}
-    db.collection("mensagens").insertOne({
-        from: from,
-        to: to, 
-        text: text, 
-        type: type, 
-        time: dayjs().format("HH:mm:ss")
-    });
 
-    res.sendStatus(201);
+    try {
+        await db.collection("mensagens").insertOne({
+            from: from,
+            to: to, 
+            text: text, 
+            type: type, 
+            time: dayjs().format("HH:mm:ss")
+        });
+    
+        res.sendStatus(201);
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send({message: "Erro ao inserir a mensagem"});
+    }
 });
 
-app.get("/messages", (req, res) => {
+app.get("/messages", async (req, res) => {
     const limit = Number(req.query.limit);
 
+    try {
+        
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send({message: "Erro ao pegar as mensagens"})
+    }
+    const mensagens = await db.collection("mensagens").find().toArray();
     if (!limit || limit === 0) {
-        db.collection("mensagens").find().toArray().then(messages => {
-            res.status(200).send({messages: messages.reverse()});
-            return;
-        });
+        res.status(200).send({messages: mensagens.reverse()});
+        return  
     };
-
-    db.collection("mensagens").find().toArray().then(messages => {
-        const mensagensLimitadas = messages.slice(-limit);
-        res.status(200).send({messages: mensagensLimitadas});
-    });
+    const mensagensLimitadas = mensagens.slice(-limit);
+    res.status(200).send({messages: mensagensLimitadas});
 });
 
 
