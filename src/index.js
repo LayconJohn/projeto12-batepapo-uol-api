@@ -21,15 +21,25 @@ let mensagens;
 app.use(cors());
 app.use(express.json());
 
-setInterval(async () => {
+//Bug na feat: Remover um usuário após 10 segundos de uso
+/*setInterval(async () => {
     try {
         const participantes = await db.collection("participantes").find().toArray();
+        participantes.forEach( participante => {
+            if (Date.now() - participante.lastStatus > 15) {
+                await db.collection("participantes").deleteOne({name: participante.name});
+                await db.collection("mensagens").insertOne(
+                    {
+                        from: participante.name, to: 'Todos', text: 'sai da sala...', type: 'status', time: dayjs().format("HH:mm:ss")}
+                )
+            }
+        })
         const participantesRemovidos = participantes.filter(participante => Date.now() - participante.lastStatus > 10)
-        console.log(participantesRemovidos)
+        //console.log(participantesRemovidos)
     } catch (error) {
         console.error(error);
     }
-}, 15 * 1000)
+}, 15 * 1000);*/
 
 
 app.post("/participants", async (req, res) => {
