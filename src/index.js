@@ -3,7 +3,7 @@ import cors from "cors";
 import chalk from "chalk";
 import dayjs from "dayjs";
 import Joi from "joi";
-import { MongoClient } from "mongodb";
+import { ConnectionClosedEvent, MongoClient } from "mongodb";
 
 const app = express();
 const url = "mongodb://localhost:27017";
@@ -20,6 +20,16 @@ let mensagens;
 
 app.use(cors());
 app.use(express.json());
+
+setInterval(async () => {
+    try {
+        const participantes = await db.collection("participantes").find().toArray();
+        const participantesRemovidos = participantes.filter(participante => Date.now() - participante.lastStatus > 10)
+        console.log(participantesRemovidos)
+    } catch (error) {
+        console.error(error);
+    }
+}, 15 * 1000)
 
 
 app.post("/participants", async (req, res) => {
@@ -135,6 +145,29 @@ app.get("/messages", async (req, res) => {
     }
 
 });
+
+app.post("/status", async (req, res) => {
+    const usuario = req.headers.user;
+
+    try {
+        const participante = await db.collection("participantes").findOne({name: usuario});
+        if (!participante) {
+            res.sendStatus(404);
+            return;
+        }
+    
+        await db.collection("participantes").updateOne({
+            name: usuario
+        }, {
+            $set: {name: usuario, lastStatus: Date.now()}
+        })
+        res.sendStatus(200);
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send({message: "Não foi possível atualizar o Status"});
+    }
+
+})
 
 
 app.listen(5000, () => {
