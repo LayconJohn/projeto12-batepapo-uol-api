@@ -87,6 +87,13 @@ app.post("/messages", async (req, res) => {
     const body = {from: from, to: to, text: text, type: type, time: dayjs().format("HH:mm:ss")}
 
     try {
+        const participanteExistente = await db.collection("participantes").findOne({name: from});
+        console.log(participanteExistente);
+        if (!participanteExistente) {
+            res.sendStatus(422);
+            return;
+        }
+
         await db.collection("mensagens").insertOne({
             from: from,
             to: to, 
@@ -105,19 +112,28 @@ app.post("/messages", async (req, res) => {
 app.get("/messages", async (req, res) => {
     const limit = Number(req.query.limit);
 
+    const usuario = req.headers.user
+
     try {
-        
+        const mensagens = await db.collection("mensagens").find().toArray();
+        if (!limit || limit === 0) {
+            const mensagensFiltradas = mensagens.filter( mensagem => {
+                return (
+                    mensagem.type === "public"
+                    || mensagem.type === "status"
+                    || (mensagem.type === "private_message" && (mensagem.to === usuario || mensagem.from === usuario))
+                )
+            })
+            res.status(200).send({messages: mensagensFiltradas.reverse()});
+            return  
+        };
+        const mensagensLimitadas = mensagens.slice(-limit);
+        res.status(200).send({messages: mensagensLimitadas}); 
     } catch (error) {
         console.error(error.message);
         res.status(500).send({message: "Erro ao pegar as mensagens"})
     }
-    const mensagens = await db.collection("mensagens").find().toArray();
-    if (!limit || limit === 0) {
-        res.status(200).send({messages: mensagens.reverse()});
-        return  
-    };
-    const mensagensLimitadas = mensagens.slice(-limit);
-    res.status(200).send({messages: mensagensLimitadas});
+
 });
 
 
