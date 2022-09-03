@@ -191,6 +191,55 @@ app.delete("/messages/:id", async (req, res) => {
     }
 })
 
+app.put("/messages/:id", async (req, res) => {
+    const {to, text, type} = req.body;
+    const {id} = req.params;
+    const from = req.headers.user;
+
+    //validation
+    const schema = Joi.object({
+        to: Joi.string().min(1).required(),
+        text: Joi.string().min(1).required(),
+        type: Joi.valid("message", "private_message")
+    })
+
+    const camposContemErro = schema.validate({to, text, type}).error
+    if (camposContemErro) {
+        res.sendStatus(422);
+        return;
+    }
+
+    try {
+        const user = await db.collection("participantes").findOne({name: from});
+        if (!user) {
+            res.sendStatus(422);
+            return;
+        }
+
+        const mensagem = await db.collection("mensagens").findOne({_id: ObjectId(id)});
+        if (!mensagem) {
+            res.sendStatus(404);
+            return;
+        }
+
+        if (mensagem.from !== from) {
+            res.sendStatus(401);
+            return;
+        }
+
+        await db.collection("mensagens").updateOne({_id: ObjectId(id)}, {$set: {
+            to:to,
+            text: text, 
+            type: type
+        }})
+
+        res.sendStatus(200);
+    } catch (error) {
+        console.error(error.message);
+        res.status(500).send({message: "Não foi possível atualizar a mensagem"})
+    }
+})
+
 //Rotas Status
 app.post("/status", async (req, res) => {
     const usuario = req.headers.user;
