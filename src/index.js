@@ -3,7 +3,10 @@ import cors from "cors";
 import chalk from "chalk";
 import dayjs from "dayjs";
 import Joi from "joi";
-import { ConnectionClosedEvent, MongoClient } from "mongodb";
+import {  MongoClient, ObjectId } from "mongodb";
+import { strict as assert } from "assert";
+import { stripHtml } from "string-strip-html";
+
 
 const app = express();
 const url = "mongodb://localhost:27017";
@@ -26,23 +29,22 @@ async function verificarInativos() {
     try {
         const participantes = await db.collection("participantes").find().toArray();
         participantes.forEach( async (participante) => {
-            if (Date.now() - participante.lastStatus > 15) {
+            if (Date.now() - participante.lastStatus > 10 * 1000) {
                 await db.collection("participantes").deleteOne({name: participante.name});
                 await db.collection("mensagens").insertOne(
                     {
                         from: participante.name, to: 'Todos', text: 'sai da sala...', type: 'status', time: dayjs().format("HH:mm:ss")}
                 )
+                console.log("Inativos removidos")
             }
         })
-        //const participantesRemovidos = participantes.filter(participante => Date.now() - participante.lastStatus > 10)
-        //console.log(participantesRemovidos)
     } catch (error) {
         console.error(error);
     }
 }
-setInterval(verificarInativos, 15 * 1000);
+//setInterval(verificarInativos, 15 * 1000);
 
-
+//Rotas Participants
 app.post("/participants", async (req, res) => {
 
     const {name} = req.body;
@@ -56,7 +58,7 @@ app.post("/participants", async (req, res) => {
     if (nameContemErro) {
         res.sendStatus(422);
         return;
-    }
+    };
 
     try {
         //filtrar se participante já existe
@@ -89,6 +91,7 @@ app.get("/participants", async (req, res) => {
     
 })
 
+//Rotas Messages
 app.post("/messages", async (req, res) => {
     const {to, text, type} = req.body;
     const from = req.headers.user;
@@ -105,11 +108,11 @@ app.post("/messages", async (req, res) => {
         return;
     }
 
+
     const body = {from: from, to: to, text: text, type: type, time: dayjs().format("HH:mm:ss")}
 
     try {
         const participanteExistente = await db.collection("participantes").findOne({name: from});
-        console.log(participanteExistente);
         if (!participanteExistente) {
             res.sendStatus(422);
             return;
@@ -157,6 +160,38 @@ app.get("/messages", async (req, res) => {
 
 });
 
+app.delete("/messages/:id", async (req, res) => {
+    const {id} = req.params;
+
+    const user = req.headers.user;
+
+
+    try {
+
+        const mensagem = await db.collection("mensagens").findOne({_id: ObjectId(id)});
+
+        if (!mensagem) {
+            res.sendStatus(404);
+            return;
+        }
+
+        if (user !== mensagem.from) {
+            res.sendStatus(401);
+            return;
+        };
+
+
+        await db.collection("mensagens").deleteOne({_id: ObjectId(id)});
+
+        res.sendStatus(200);
+
+    } catch (error) {
+        console.error(error.message)
+        res.status(500).send({message: "Erro ao deletar mensagem"});
+    }
+})
+
+//Rotas Status
 app.post("/status", async (req, res) => {
     const usuario = req.headers.user;
 
