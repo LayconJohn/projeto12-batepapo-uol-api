@@ -54,13 +54,13 @@ app.post("/participants", async (req, res) => {
         name: Joi.string().min(1).required()
     })
 
-    const nameContemErro = schema.validate({name}).error
+    const nameContemErro = schema.validate({name: stripHtml(name).result.trim()}).error
     if (nameContemErro) {
         res.sendStatus(422);
         return;
     };
 
-    const nameSanitizado = stripHtml(name).result;
+    const nameSanitizado = stripHtml(name).result.trim();
 
     try {
         //filtrar se participante já existe
@@ -103,14 +103,14 @@ app.post("/messages", async (req, res) => {
         type: Joi.string().valid("public", "private_message").required()
     })
 
-    const mensagemContemErro = schema.validate({to: stripHtml(to).result, text: stripHtml(text).result, type: stripHtml(type).result}).error !== undefined;
+    const mensagemContemErro = schema.validate({to: stripHtml(to).result.trim(), text: stripHtml(text).result.trim(), type: stripHtml(type).result.trim()}).error !== undefined;
     if (mensagemContemErro) {
         res.sendStatus(422);
         return;
     }
 
     try {
-        const participanteExistente = await db.collection("participantes").findOne({name: stripHtml(from).result});
+        const participanteExistente = await db.collection("participantes").findOne({name: stripHtml(from).result.trim()});
         if (!participanteExistente && to !== "Todos") {
             res.sendStatus(422);
             return;
@@ -118,10 +118,10 @@ app.post("/messages", async (req, res) => {
 
         const destinatario = stripHtml(type).result === "public" ? "Todos" : stripHtml(to).result;
         await db.collection("mensagens").insertOne({
-            from: stripHtml(from).result,
-            to: destinatario,
-            text: stripHtml(text).result,
-            type: stripHtml(type).result,
+            from: stripHtml(from).result.trim(),
+            to: destinatario.trim(),
+            text: stripHtml(text).result.trim(),
+            type: stripHtml(type).result.trim(),
             time: dayjs().format("HH:mm:ss")
         });
     
