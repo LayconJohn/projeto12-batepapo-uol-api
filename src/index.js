@@ -5,7 +5,6 @@ import dayjs from "dayjs";
 import Joi from "joi";
 import {  MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
-import { strict as assert } from "assert";
 import { stripHtml } from "string-strip-html";
 
 
@@ -61,17 +60,18 @@ app.post("/participants", async (req, res) => {
         return;
     };
 
+    const nameSanitizado = stripHtml(name).result;
+
     try {
         //filtrar se participante já existe
-        const participantes = await db.collection("participantes").find().toArray();
-        const nameJaExiste = participantes.find(value => value.name === name);
-        if (nameJaExiste) {
+        const participante = await db.collection("participantes").findOne({name: nameSanitizado})
+        if (participante) {
             res.sendStatus(409);
             return;
         }
         
-        await db.collection("participantes").insertOne({name: name, lastStatus: Date.now()});
-        await db.collection("mensagens").insertOne({from: name, to: 'Todos', text: 'entra na sala...', type: 'status', time: dayjs().format("HH:mm:ss")})
+        await db.collection("participantes").insertOne({name: nameSanitizado, lastStatus: Date.now()});
+        await db.collection("mensagens").insertOne({from: nameSanitizado, to: 'Todos', text: 'entra na sala...', type: 'status', time: dayjs().format("HH:mm:ss")})
     
         res.sendStatus(201);
     } catch (error) {
@@ -103,29 +103,25 @@ app.post("/messages", async (req, res) => {
         type: Joi.string().valid("public", "private_message").required()
     })
 
-    const mensagemContemErro = schema.validate({to, text, type}).error !== undefined;
+    const mensagemContemErro = schema.validate({to: stripHtml(to).result, text: stripHtml(text).result, type: stripHtml(type).result}).error !== undefined;
     if (mensagemContemErro) {
         res.sendStatus(422);
         return;
     }
 
-
-    const body = {from: from, to: to, text: text, type: type, time: dayjs().format("HH:mm:ss")}
-
     try {
-        const participanteExistente = await db.collection("participantes").findOne({name: from});
+        const participanteExistente = await db.collection("participantes").findOne({name: stripHtml(from).result});
         if (!participanteExistente && to !== "Todos") {
             res.sendStatus(422);
             return;
         }
 
-        const destinatario = type === "public" ? "Todos" : to;
-
+        const destinatario = stripHtml(type).result === "public" ? "Todos" : stripHtml(to).result;
         await db.collection("mensagens").insertOne({
-            from: from,
-            to: destinatario, 
-            text: text, 
-            type: type, 
+            from: stripHtml(from).result,
+            to: destinatario,
+            text: stripHtml(text).result,
+            type: stripHtml(type).result,
             time: dayjs().format("HH:mm:ss")
         });
     
