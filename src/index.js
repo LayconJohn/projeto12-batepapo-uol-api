@@ -4,13 +4,15 @@ import chalk from "chalk";
 import dayjs from "dayjs";
 import Joi from "joi";
 import {  MongoClient, ObjectId } from "mongodb";
+import dotenv from "dotenv";
 import { strict as assert } from "assert";
 import { stripHtml } from "string-strip-html";
 
 
 const app = express();
-const url = "mongodb://localhost:27017";
-const cliente = new MongoClient(url);
+dotenv.config();
+
+const cliente = new MongoClient(process.env.MONGO_URI);
 let db;
 
 cliente.connect().then(() => {
@@ -19,7 +21,6 @@ cliente.connect().then(() => {
 
 let participantes;
 let mensagens;
-
 
 app.use(cors());
 app.use(express.json());
@@ -98,12 +99,12 @@ app.post("/messages", async (req, res) => {
 
     const schema = Joi.object({
         to: Joi.string().min(1).required(),
-        text: Joi.string().min(1).required()
+        text: Joi.string().min(1).required(),
+        type: Joi.string().valid("public", "private_message").required()
     })
 
-    const mensagemContemErro = schema.validate({to, text}).error !== undefined;
-    const tipoMensagemEhValida = type === "message" || type === "private_message";
-    if (mensagemContemErro || !tipoMensagemEhValida) {
+    const mensagemContemErro = schema.validate({to, text, type}).error !== undefined;
+    if (mensagemContemErro) {
         res.sendStatus(422);
         return;
     }
@@ -113,14 +114,16 @@ app.post("/messages", async (req, res) => {
 
     try {
         const participanteExistente = await db.collection("participantes").findOne({name: from});
-        if (!participanteExistente) {
+        if (!participanteExistente && to !== "Todos") {
             res.sendStatus(422);
             return;
         }
 
+        const destinatario = type === "public" ? "Todos" : to;
+
         await db.collection("mensagens").insertOne({
             from: from,
-            to: to, 
+            to: destinatario, 
             text: text, 
             type: type, 
             time: dayjs().format("HH:mm:ss")
@@ -265,8 +268,8 @@ app.post("/status", async (req, res) => {
 })
 
 
-app.listen(5000, () => {
+app.listen(process.env.PORT, () => {
     console.log(chalk.greenBright("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"))
-    console.log(chalk.green("Servidor rodando na porta 5000"))
+    console.log(chalk.green(`Servidor rodando na porta ${process.env.PORT}`))
     console.log(chalk.greenBright("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"))
 })
