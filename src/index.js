@@ -42,7 +42,7 @@ async function verificarInativos() {
         console.error(error);
     }
 }
-//setInterval(verificarInativos, 15 * 1000);
+setInterval(verificarInativos, 15 * 1000);
 
 //Rotas Participants
 app.post("/participants", async (req, res) => {
@@ -84,7 +84,7 @@ app.get("/participants", async (req, res) => {
 
     try {
         const participantes = await db.collection("participantes").find().toArray();
-        res.status(200).send({participants: participantes});
+        res.status(200).send(participantes);
     } catch (error) {
         console.error(error.message);
         res.status(500).send({message: "Erro ao pegar a lista de participantes"})
@@ -151,7 +151,7 @@ app.get("/messages", async (req, res) => {
             return  
         };
         const mensagensLimitadas = mensagens.slice(-limit);
-        res.status(200).send({messages: mensagensLimitadas}); 
+        res.status(200).send(mensagensLimitadas); 
     } catch (error) {
         console.error(error.message);
         res.status(500).send({message: "Erro ao pegar as mensagens"})
